@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #1a6faf;
+  --color-brand-dark: #0a131b;
+  --color-ok: #37bc6d;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@utility btn {
+  @apply inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand/90;
+}
+@utility btn-dark {
+  @apply btn bg-brand-dark text-white hover:bg-brand-dark/90;
+}
+@utility btn-ghost {
+  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+@utility btn-danger {
+  @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+}
+@utility input {
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
+}
+@utility label {
+  @apply mb-1 block text-xs font-medium tracking-wide text-slate-500 uppercase;
+}
+@utility card {
+  @apply rounded-xl border border-slate-200 bg-white;
+}
+@utility th {
+  @apply px-4 py-2.5 text-left text-xs font-medium tracking-wide text-slate-500 uppercase;
+}
+@utility td {
+  @apply px-4 py-3 text-sm;
+}

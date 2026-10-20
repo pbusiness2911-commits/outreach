@@ -8,7 +8,7 @@ export default defineConfig({
   build: { outDir: '../dist/client', emptyOutDir: true },
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:3000', '/u': 'http://localhost:3000', '/t': 'http://localhost:3000' },
+    proxy: { '/api': 'http://localhost:3100', '/u': 'http://localhost:3100', '/t': 'http://localhost:3100' },
   },
   test: { root: '.', include: ['tests/**/*.test.ts'], testTimeout: 30000 },
 } as any);
