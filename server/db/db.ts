@@ -59,7 +59,7 @@ async function fromPglite(dataDir?: string): Promise<Db> {
 
 export async function createDb(opts: { url?: string; dataDir?: string; memory?: boolean } = {}): Promise<Db> {
   if (opts.url) {
-    const ssl = /localhost|127\.0\.0\.1|\.railway\.internal/.test(opts.url) ? undefined : { rejectUnauthorized: false };
+    const ssl = /localhost|127\.0\.0\.1|\.railway\.internal|@dpg-[^.:/]+[:/]/.test(opts.url) ? undefined : { rejectUnauthorized: false };
     return fromPool(new pg.Pool({ connectionString: opts.url, ssl, max: 10 }));
   }
   if (opts.memory) return fromPglite();

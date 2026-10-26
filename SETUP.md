@@ -32,29 +32,25 @@ Do this in **every** Google Workspace that owns one of your sending domains (get
 
 The app can only **send** and **read** mail. It can't delete mail, change settings or see passwords.
 
-## 3. Deploy to Railway
+## 3. Deploy to Render
 
-1. Sign up at **https://railway.com** and choose the **Hobby** plan ($5/month minimum, which includes $5 of usage).
-   In **Account → Usage**, set a **hard limit** of $10 so the bill can never surprise you.
-2. Put this folder on GitHub (private repo), or install the Railway CLI and run `railway up` from this folder.
-3. In Railway: **New project → Deploy from GitHub repo** → pick the repo.
-4. In the same project: **+ New → Database → PostgreSQL**.
-5. Click your app service → **Variables** → add:
+1. Sign up at **https://render.com** with GitHub. Add a card and turn on **two-factor login**.
+2. The code lives in a private GitHub repo (with the `render.yaml` file in it).
+3. In Render: **New → Blueprint** → pick the repo → **Apply**. This creates the app (Starter, about $7/month, always on) and the Postgres database (Basic, about $6/month).
+4. Render asks for these values:
 
    | Variable | Value |
    |---|---|
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Railway fills it in) |
    | `ADMIN_PASSWORD` | a strong password for the dashboard |
-   | `APP_SECRET` | a long random string (40+ characters) |
    | `GOOGLE_SERVICE_ACCOUNT_JSON` | the **entire contents** of the JSON key file from step 1.5 |
-   | `PUBLIC_URL` | your app's URL, e.g. `https://outreach-production.up.railway.app` (see **Settings → Networking → Generate domain**) |
-   | `MILLIONVERIFIER_API_KEY` | from step 4 (optional, recommended) |
+   | `PUBLIC_URL` | `https://outreach.onrender.com` for now; fix it in step 5 |
+   | `MILLIONVERIFIER_API_KEY` | from step 4 (optional; leave empty for now) |
 
-6. **Settings → Networking → Generate domain** to get the public URL (put it in `PUBLIC_URL` above).
-7. Railway redeploys automatically. Open the URL and log in with `ADMIN_PASSWORD`.
-8. Postgres → **Backups** → turn on daily backups.
+   `APP_SECRET` and `DATABASE_URL` are filled in automatically.
+5. When it's live, copy the app's real URL (top of the service page, e.g. `https://outreach-ab12.onrender.com`). Go to **Environment** and set `PUBLIC_URL` to it → **Save** (it redeploys).
+6. Open the URL and log in with `ADMIN_PASSWORD`.
 
-Keep the app at **1 replica**. The app also locks itself so only one copy ever sends.
+Keep the app at **1 instance**. The app also locks itself so only one copy ever sends. Every push to GitHub redeploys automatically.
 
 ## 4. Email verification (recommended)
 
