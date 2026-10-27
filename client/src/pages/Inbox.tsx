@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLoad, Page, Badge, Empty } from '../ui';
 import { api, fmtDate } from '../api';
+import { toast } from '../dialogs';
 
 const INTEREST = [
   ['interested', 'Interested'],
@@ -75,7 +76,7 @@ function Thread({ clId, onChange }: { clId: number; onChange: () => void }) {
         <div className="mt-2 flex justify-end">
           <button className="btn-primary" disabled={!reply.trim() || busy} onClick={async () => {
             setBusy(true);
-            try { await api(`/inbox/${clId}/reply`, { body: { body: reply } }); setReply(''); reload(); } catch (e: any) { alert(e.message); } finally { setBusy(false); }
+            try { await api(`/inbox/${clId}/reply`, { body: { body: reply } }); setReply(''); reload(); toast('Reply sent.'); } catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
           }}>{busy ? 'Sending…' : 'Send reply'}</button>
         </div>
       </div>

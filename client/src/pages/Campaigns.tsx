@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoad, Page, Badge, Empty } from '../ui';
 import { api, pct } from '../api';
+import { askText } from '../dialogs';
 
 export function Campaigns() {
   const { data, reload } = useLoad<any[]>('/campaigns');
   const nav = useNavigate();
   const create = async () => {
-    const name = prompt('Campaign name');
+    const name = await askText({ title: 'New campaign', label: 'Campaign name', placeholder: 'e.g. Interior designers – UK – Oct', confirmLabel: 'Create campaign' });
     if (!name) return;
     const c = await api('/campaigns', { body: { name } });
     nav(`/campaigns/${c.id}`);

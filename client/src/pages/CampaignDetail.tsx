@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import { useLoad, Page, Badge, Alert, Stat, Toggle, Modal } from '../ui';
 import { api, fmtDate, pct } from '../api';
+import { askText, askConfirm, toast } from '../dialogs';
 
 const VARS = ['firstName', 'lastName', 'company', 'title', 'city', 'website', 'senderFirstName'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -30,10 +31,10 @@ export function CampaignDetail() {
         <>
           <Badge value={c.status} />
           <button className={c.status === 'running' ? 'btn-ghost' : 'btn-primary'} onClick={toggleRun}>{c.status === 'running' ? 'Pause' : 'Launch'}</button>
-          <button className="btn-ghost" onClick={async () => { const n = prompt('Rename campaign', c.name); if (n) setData(await api(`/campaigns/${id}`, { method: 'PUT', body: { name: n } })); }}>Rename</button>
+          <button className="btn-ghost" onClick={async () => { const n = await askText({ title: 'Rename campaign', label: 'Campaign name', initial: c.name }); if (n) setData(await api(`/campaigns/${id}`, { method: 'PUT', body: { name: n } })); }}>Rename</button>
           <button className="btn-danger" onClick={async () => {
-            if (!confirm('Delete this campaign and its stats? Leads stay in your lead list.')) return;
-            try { await api(`/campaigns/${id}`, { method: 'DELETE' }); nav('/campaigns'); } catch (e: any) { alert(e.message); }
+            if (!(await askConfirm({ title: 'Delete campaign?', message: 'This deletes the campaign and its stats. Leads stay in your lead list.', confirmLabel: 'Delete', danger: true }))) return;
+            try { await api(`/campaigns/${id}`, { method: 'DELETE' }); nav('/campaigns'); toast('Campaign deleted.'); } catch (e: any) { toast(e.message, 'error'); }
           }}>Delete</button>
         </>
       }
@@ -128,7 +129,7 @@ function SequenceEditor({ campaign, onSaved }: { campaign: any; onSaved: (c: any
                 {step.variants.length < 5 && (
                   <button className="text-xs text-brand hover:underline" onClick={() => update((s) => { const base = s[si].variants[0]; s[si].variants.push({ label: String.fromCharCode(65 + s[si].variants.length), subject: base.subject, body: base.body, weight: 1, active: true }); })}>+ A/B variant</button>
                 )}
-                {steps.length > 1 && <button className="text-xs text-red-600 hover:underline" onClick={() => { if (confirm('Remove this step?')) update((s) => { s.splice(si, 1); }); }}>Remove step</button>}
+                {steps.length > 1 && <button className="text-xs text-red-600 hover:underline" onClick={async () => { if (await askConfirm({ title: 'Remove step?', message: `Step ${si + 1} and its variants will be removed when you save.`, confirmLabel: 'Remove', danger: true })) update((s) => { s.splice(si, 1); }); }}>Remove step</button>}
               </div>
             </div>
             <div className={`grid gap-4 ${step.variants.length > 1 ? 'md:grid-cols-2' : ''}`}>
@@ -228,7 +229,7 @@ function LeadsTab({ campaignId, onChange }: { campaignId: number; onChange: () =
   const doImport = async () => {
     if (!importing) return;
     const fields = Object.values(importing.mapping);
-    if (!fields.includes('email')) return alert('Map one column to "email".');
+    if (!fields.includes('email')) return toast('Map one column to "email".', 'error');
     setBusy(true);
     try {
       const rows = importing.rows.map((r) => {
@@ -245,7 +246,7 @@ function LeadsTab({ campaignId, onChange }: { campaignId: number; onChange: () =
       reload();
       onChange();
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message, 'error');
     } finally {
       setBusy(false);
     }

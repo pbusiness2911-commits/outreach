@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLoad, Page, Badge, Alert } from '../ui';
 import { api, fmtDate } from '../api';
+import { askConfirm, toast } from '../dialogs';
 
 export function Suppressions() {
   const [q, setQ] = useState('');
@@ -21,7 +22,7 @@ export function Suppressions() {
                     <td className="td">{s.kind === 'domain' ? `@${s.value}` : s.value}</td>
                     <td className="td"><Badge value={s.reason} /></td>
                     <td className="td text-xs text-slate-500">{fmtDate(s.created_at)}</td>
-                    <td className="td text-right">{s.reason !== 'unsubscribed' && <button className="text-xs text-slate-500 hover:text-red-600" onClick={async () => { if (!confirm(`Allow emailing ${s.value} again?`)) return; try { await api(`/suppressions/${s.id}`, { method: 'DELETE' }); reload(); } catch (e: any) { alert(e.message); } }}>Remove</button>}</td>
+                    <td className="td text-right">{s.reason !== 'unsubscribed' && <button className="text-xs text-slate-500 hover:text-red-600" onClick={async () => { if (!(await askConfirm({ title: 'Remove from Do not contact?', message: `${s.value} could be emailed again by future campaigns.`, confirmLabel: 'Remove' }))) return; try { await api(`/suppressions/${s.id}`, { method: 'DELETE' }); reload(); } catch (e: any) { toast(e.message, 'error'); } }}>Remove</button>}</td>
                   </tr>
                 ))}
               </tbody>

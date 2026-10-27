@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLoad, Page, Badge, Alert, Modal, Toggle, Empty } from '../ui';
 import { api, fmtDate, pct } from '../api';
+import { askConfirm } from '../dialogs';
 
 function DnsCell({ s }: { s: any }) {
   if (!s) return <span className="text-xs text-slate-400">not checked</span>;
@@ -47,7 +48,7 @@ export function Mailboxes() {
                       ? <button className="mr-3 text-slate-500 hover:text-amber-700" onClick={() => act(`/mailboxes/${m.id}/pause`)}>Pause</button>
                       : <button className="mr-3 text-brand hover:underline" onClick={() => act(`/mailboxes/${m.id}/resume`)}>Resume</button>}
                     <button className="mr-3 text-slate-500 hover:text-brand" onClick={async () => { try { await api(`/mailboxes/${m.id}/test`, { body: {} }); setMsg({ tone: 'ok', text: `${m.email}: connection OK` }); } catch (e: any) { setMsg({ tone: 'error', text: e.message }); } }}>Test</button>
-                    <button className="text-slate-500 hover:text-red-600" onClick={async () => { if (!confirm(`Remove ${m.email}?`)) return; try { await api(`/mailboxes/${m.id}`, { method: 'DELETE' }); reload(); } catch (e: any) { setMsg({ tone: 'error', text: e.message }); } }}>Remove</button>
+                    <button className="text-slate-500 hover:text-red-600" onClick={async () => { if (!(await askConfirm({ title: 'Remove mailbox?', message: `${m.email} will be removed and stop sending. You can add it again later.`, confirmLabel: 'Remove', danger: true }))) return; try { await api(`/mailboxes/${m.id}`, { method: 'DELETE' }); reload(); } catch (e: any) { setMsg({ tone: 'error', text: e.message }); } }}>Remove</button>
                   </td>
                 </tr>
               ))}

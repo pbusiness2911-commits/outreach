@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import './index.css';
 import { api } from './api';
+import { DialogHost } from './dialogs';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Campaigns } from './pages/Campaigns';
@@ -74,6 +75,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <DialogHost />
     </BrowserRouter>
   </StrictMode>,
 );
