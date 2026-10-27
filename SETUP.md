@@ -32,25 +32,27 @@ Do this in **every** Google Workspace that owns one of your sending domains (get
 
 The app can only **send** and **read** mail. It can't delete mail, change settings or see passwords.
 
-## 3. Deploy to Render
+## 3. Deploy to Render (free)
 
-1. Sign up at **https://render.com** with GitHub. Add a card and turn on **two-factor login**.
-2. The code lives in a private GitHub repo (with the `render.yaml` file in it).
-3. In Render: **New → Blueprint** → pick the repo → **Apply**. This creates the app (Starter, about $7/month, always on) and the Postgres database (Basic, about $6/month).
-4. Render asks for these values:
+1. **Database: https://neon.tech** → sign up → create a project named `outreach` (region: closest to you).
+   Copy the **connection string** (starts with `postgresql://`, ends with `sslmode=require`).
+2. **https://render.com** → sign up with GitHub → **New → Blueprint** → pick the `outreach` repo → fill in:
 
    | Variable | Value |
    |---|---|
+   | `DATABASE_URL` | the Neon connection string |
    | `ADMIN_PASSWORD` | a strong password for the dashboard |
    | `GOOGLE_SERVICE_ACCOUNT_JSON` | the **entire contents** of the JSON key file from step 1.5 |
-   | `PUBLIC_URL` | `https://outreach.onrender.com` for now; fix it in step 5 |
-   | `MILLIONVERIFIER_API_KEY` | from step 4 (optional; leave empty for now) |
+   | `PUBLIC_URL` | `https://outreach.onrender.com` for now; fix it in step 3 |
+   | `MILLIONVERIFIER_API_KEY` | optional; leave empty for now |
 
-   `APP_SECRET` and `DATABASE_URL` are filled in automatically.
-5. When it's live, copy the app's real URL (top of the service page, e.g. `https://outreach-ab12.onrender.com`). Go to **Environment** and set `PUBLIC_URL` to it → **Save** (it redeploys).
-6. Open the URL and log in with `ADMIN_PASSWORD`.
+   → **Apply**. `APP_SECRET` is generated automatically.
+3. When it's live, copy the app's real URL from the top of the service page. **Environment** → set `PUBLIC_URL` to it → **Save**.
+4. **Keep it awake: https://uptimerobot.com** → sign up → **New monitor** → type **HTTP(s)**, URL `<your app URL>/healthz`, interval **5 minutes** → **Create**.
+   Free Render apps sleep after 15 minutes without visits; sleeping would pause sending.
+5. Open the URL and log in with `ADMIN_PASSWORD`.
 
-Keep the app at **1 instance**. The app also locks itself so only one copy ever sends. Every push to GitHub redeploys automatically.
+Upgrading later: in `render.yaml` change `plan: free` to `plan: starter`. Nothing else changes.
 
 ## 4. Email verification (recommended)
 

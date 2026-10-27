@@ -1,9 +1,11 @@
-# Render Blueprint: one always-on web service (API + sending worker) and a Postgres database.
+# Render Blueprint (free plan). The database lives on Neon (free Postgres); paste its URL as DATABASE_URL.
+# Free services sleep after 15 minutes without traffic, so an UptimeRobot monitor pings /healthz every 5 minutes.
+# To upgrade later: change plan to starter (no other changes needed).
 services:
   - type: web
     name: outreach
     runtime: node
-    plan: starter
+    plan: free
     numInstances: 1
     buildCommand: npm ci && npm run build
     startCommand: npm start
@@ -12,12 +14,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: outreach-db
-          property: connectionString
       - key: APP_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: PUBLIC_URL
@@ -26,8 +26,3 @@ services:
         sync: false
       - key: MILLIONVERIFIER_API_KEY
         sync: false
-
-databases:
-  - name: outreach-db
-    plan: basic-256mb
-    databaseName: outreach
