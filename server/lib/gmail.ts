@@ -21,6 +21,8 @@ export interface MailClient {
   listInbox(mailbox: string, sinceEpochSec: number): Promise<string[]>;
   getMessage(mailbox: string, id: string): Promise<GmailMessageMeta>;
   findByRfcId(mailbox: string, rfcId: string): Promise<{ id: string; threadId: string } | null>;
+  /** Message ids matching a Gmail search query (e.g. "in:sent after:1700000000"), newest first. */
+  search(mailbox: string, query: string, max?: number): Promise<string[]>;
   check(mailbox: string): Promise<void>;
 }
 
@@ -134,6 +136,19 @@ export class GmailClient implements MailClient {
     return m ? { id: m.id, threadId: m.threadId } : null;
   }
 
+  async search(mailbox: string, query: string, max = 5000) {
+    const ids: string[] = [];
+    let pageToken: string | undefined;
+    const q = encodeURIComponent(query);
+    while (ids.length < max) {
+      const r = await this.call<any>(mailbox, 'GET', `messages?q=${q}&maxResults=500${pageToken ? `&pageToken=${pageToken}` : ''}`);
+      for (const m of r.messages || []) ids.push(m.id);
+      pageToken = r.nextPageToken;
+      if (!pageToken) break;
+    }
+    return ids.slice(0, max);
+  }
+
   async check(mailbox: string) {
     await this.call(mailbox, 'GET', 'profile');
   }
@@ -160,13 +175,23 @@ export class FakeMailClient implements MailClient {
     return (this.inbox.get(mailbox) || []).map((m) => m.id);
   }
   async getMessage(mailbox: string, id: string) {
-    const m = (this.inbox.get(mailbox) || []).find((x) => x.id === id);
+    const m = [...(this.inbox.get(mailbox) || []), ...(this.sentBox.get(mailbox) || [])].find((x) => x.id === id);
     if (!m) throw new GmailError('not found', 404);
     return m;
   }
   async findByRfcId(mailbox: string, rfcId: string) {
     const hit = this.sent.find((s) => s.mailbox === mailbox && s.raw.includes(`Message-ID: ${rfcId}`));
     return hit ? { id: hit.id, threadId: hit.threadId || hit.id } : null;
+  }
+  /** Tests put messages here; search() matches "in:sent" against sentBox and anything else against inbox, filtered by from:/to:. */
+  sentBox = new Map<string, GmailMessageMeta[]>();
+  async search(mailbox: string, query: string) {
+    const pool = /in:sent/.test(query) ? this.sentBox.get(mailbox) || [] : this.inbox.get(mailbox) || [];
+    const from = query.match(/from:(\S+)/)?.[1]?.toLowerCase();
+    const to = query.match(/to:(\S+)/)?.[1]?.toLowerCase();
+    return pool
+      .filter((m) => (!from || (m.headers.from || '').toLowerCase().includes(from)) && (!to || (m.headers.to || '').toLowerCase().includes(to)))
+      .map((m) => m.id);
   }
   async check() {}
 }

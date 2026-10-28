@@ -153,6 +153,15 @@ function buildServer(db: Db) {
     q: z.string().optional(),
     page: z.number().int().min(0).optional(),
   }, ({ campaign_id, ...rest }) => call('GET', `/campaigns/${campaign_id}/leads${qs(rest)}`));
+  tool(
+    'resume_from_gmail',
+    'For leads imported from another tool (e.g. lemlist) that already emailed them from these same mailboxes: reads each campaign mailbox Gmail Sent folder since `since`, ' +
+      'marks the steps already sent, keeps the same sender and Gmail thread, and schedules only the next step. With apply=true it also processes replies/bounces found in Gmail. ' +
+      'Run with apply=false first and show the report; campaign must be paused/draft. Leads with nothing sent stay queued for step 1.',
+    { campaign_id: id, since: z.string().describe('Date the earlier campaign started, e.g. 2026-10-17'), apply: z.boolean().default(false) },
+    ({ campaign_id, ...rest }) => call('POST', `/campaigns/${campaign_id}/resume-from-gmail`, rest),
+    true,
+  );
   tool('stop_lead', 'Stop the sequence for one lead in a campaign (cl_id from list_campaign_leads or the inbox).', { cl_id: id }, (a) => call('POST', `/campaign-leads/${a.cl_id}/stop`, {}), true);
   tool('preview_campaign', 'Render every step exactly as a lead will receive it (first lead, or a given lead_id). Shows missing-variable errors.', { campaign_id: id, lead_id: z.number().int().optional() }, ({ campaign_id, ...rest }) =>
     call('POST', `/campaigns/${campaign_id}/preview`, rest));

@@ -27,7 +27,7 @@ export async function syncMailbox(ctx: Ctx, mb: any): Promise<number> {
   return handled;
 }
 
-async function handleInbound(ctx: Ctx, mb: any, m: { id: string; threadId: string; headers: Record<string, string>; text: string; snippet: string }) {
+export async function handleInbound(ctx: Ctx, mb: any, m: { id: string; threadId: string; headers: Record<string, string>; text: string; snippet: string }) {
   const from = parseAddress(m.headers.from);
   if (from === mb.email.toLowerCase()) return false;
   const subject = m.headers.subject || '';

@@ -5,6 +5,7 @@ import type { Ctx } from '../engine/context.js';
 import { logEvent, suppress, settings, DEFAULT_SETTINGS } from '../engine/context.js';
 import { config } from '../config.js';
 import { sessionValue, checkSession, validApiKey } from '../lib/tokens.js';
+import { resumeFromGmail } from '../engine/resume.js';
 import { normalizeEmail, isValidSyntax, isRoleAddress } from '../lib/verify.js';
 import { renderTemplate, leadVars, requiredVariables, MissingVariableError } from '../lib/render.js';
 import { isValidTimezone } from '../lib/schedule.js';
@@ -563,6 +564,13 @@ export function apiRouter(ctx: Ctx) {
     });
     await logEvent(db, 'info', 'leads', `Imported ${result.added} leads`, { campaign_id: campaignId });
     res.json(result);
+  }));
+
+  // Continue leads that an earlier tool already emailed from these mailboxes (reads Gmail Sent). apply=false is a dry run.
+  r.post('/campaigns/:id/resume-from-gmail', wrap(async (req, res) => {
+    const since = new Date(String(req.body?.since || ''));
+    if (Number.isNaN(since.getTime())) return res.status(400).json({ error: 'since must be a date, e.g. 2026-10-17' });
+    res.json(await resumeFromGmail(ctx, Number(req.params.id), { since, apply: req.body?.apply === true }));
   }));
 
   r.post('/campaign-leads/:clId/stop', wrap(async (req, res) => {
