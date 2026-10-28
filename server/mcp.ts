@@ -49,6 +49,7 @@ function buildServer(db: Db) {
   const id = z.number().int().describe('Numeric id');
 
   // ---------- overview ----------
+  tool('get_app_status', 'Whether the app really sends (dryRun=false means the Google key is loaded and emails go out) and whether full email verification is on.', {}, () => call('GET', '/me'));
   tool('get_overview', 'Sending stats (today / 7 days), unread replies, running campaigns, mailbox health and the 30 latest events.', {}, () => call('GET', '/dashboard'));
   tool('list_events', 'Activity log: launches, auto-pauses, bounces, errors. Optional level filter.', { level: z.enum(['info', 'warn', 'error']).optional() }, (a) => call('GET', `/events${qs(a)}`));
 
