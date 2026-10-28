@@ -189,6 +189,18 @@ function buildServer(db: Db) {
   tool('list_do_not_contact', 'Do-not-contact list (emails and whole domains), newest first.', { q: z.string().optional() }, (a) => call('GET', `/suppressions${qs(a)}`));
   tool('add_do_not_contact', 'Block emails or whole domains from ever being emailed.', { values: z.array(z.string()).min(1).max(5000) }, (a) => call('POST', '/suppressions', { values: a.values.join('\n') }), true);
   tool('get_settings', 'Global safety settings (role-address blocking, DNS requirement, bounce auto-pause threshold).', {}, () => call('GET', '/settings'));
+  tool('update_settings', 'Change global safety settings. Only call after the user approved the change in chat.', {
+    block_role_addresses: z.boolean().optional().describe('Never email info@, support@, sales@…'),
+    require_dns: z.boolean().optional().describe('Pause mailboxes with broken SPF/DKIM/DMARC'),
+    bounce_pause_percent: z.number().min(1).max(10).optional().describe('Auto-pause above this 7-day bounce rate'),
+    bounce_min_sends: z.number().int().min(10).optional().describe('…once at least this many emails were sent'),
+  }, (a) => call('PUT', '/settings', a), true);
+
+  // ---------- deletions (permanent: only after the user confirmed in chat) ----------
+  tool('delete_campaign', 'Permanently delete a campaign and its stats (leads stay in the lead list). Running campaigns must be paused first. Only call after the user confirmed in chat.', { campaign_id: id }, (a) =>
+    call('DELETE', `/campaigns/${a.campaign_id}`), true);
+  tool('remove_lead_from_campaign', 'Remove a lead from a campaign (cl_id from list_campaign_leads). Sent messages are kept; the lead stays in the lead list. Refused while an email is mid-send. Only call after the user confirmed in chat.', { cl_id: id }, (a) =>
+    call('DELETE', `/campaign-leads/${a.cl_id}`), true);
 
   return server;
 }
