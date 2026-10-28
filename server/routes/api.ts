@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Ctx } from '../engine/context.js';
 import { logEvent, suppress, settings, DEFAULT_SETTINGS } from '../engine/context.js';
 import { config } from '../config.js';
-import { sessionValue, checkSession } from '../lib/tokens.js';
+import { sessionValue, checkSession, validApiKey } from '../lib/tokens.js';
 import { normalizeEmail, isValidSyntax, isRoleAddress } from '../lib/verify.js';
 import { renderTemplate, leadVars, requiredVariables, MissingVariableError } from '../lib/render.js';
 import { isValidTimezone } from '../lib/schedule.js';
@@ -53,7 +53,7 @@ export function apiRouter(ctx: Ctx) {
     res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0');
     res.json({ ok: true });
   });
-  r.use((req, res, next) => (checkSession(cookie(req, 'sid')) ? next() : res.status(401).json({ error: 'Not logged in' })));
+  r.use((req, res, next) => (checkSession(cookie(req, 'sid')) || validApiKey(req.headers.authorization) ? next() : res.status(401).json({ error: 'Not logged in' })));
   r.get('/me', (_req, res) => res.json({ ok: true, dryRun: config.dryRun || !config.serviceAccountJson, verifier: !!config.millionVerifierKey }));
 
   // ---------- dashboard ----------

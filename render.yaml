@@ -24,5 +24,7 @@ services:
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: OUTREACH_API_KEY
+        sync: false
       - key: MILLIONVERIFIER_API_KEY
         sync: false

@@ -8,6 +8,7 @@ import type { Ctx } from './engine/context.js';
 import { startWorker } from './engine/worker.js';
 import { apiRouter } from './routes/api.js';
 import { publicRouter } from './routes/public.js';
+import { mountMcp } from './mcp.js';
 
 const problems = assertConfig();
 for (const p of problems) console.warn(`Config warning: ${p}`);
@@ -47,6 +48,7 @@ app.use(express.urlencoded({ extended: false }));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.use(publicRouter(ctx));
 app.use('/api', apiRouter(ctx));
+if (config.apiKey) mountMcp(app, db);
 
 const clientDir = path.resolve('dist/client');
 if (fs.existsSync(clientDir)) {

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "outreach": {
+      "type": "http",
+      "url": "${OUTREACH_URL}/mcp",
+      "headers": { "Authorization": "Bearer ${OUTREACH_API_KEY}" }
+    }
+  }
+}

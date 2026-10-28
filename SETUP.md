@@ -54,6 +54,20 @@ The app can only **send** and **read** mail. It can't delete mail, change settin
 
 Upgrading later: in `render.yaml` change `plan: free` to `plan: starter`. Nothing else changes.
 
+## 3b. Let Claude operate the app (optional)
+
+The app has a connector at `/mcp`, so Claude (in the Claude desktop app, opened on this folder) can create campaigns, write sequences, import leads, read the inbox and send approved replies.
+
+1. Make a key: in PowerShell run
+   `-join ((48..57)+(65..90)+(97..122) | Get-Random -Count 48 | % {[char]$_})` and copy the result.
+2. **Render** → outreach → **Environment** → add `OUTREACH_API_KEY` = the key → **Save**.
+3. **Your PC**: Start menu → "Edit environment variables for your account" → **New** twice:
+   - `OUTREACH_API_KEY` = the same key
+   - `OUTREACH_URL` = your app URL, e.g. `https://outreach-ab12.onrender.com` (no trailing slash)
+4. Fully quit and reopen the Claude desktop app, open this project, and approve the **outreach** connector when asked.
+
+Claude never sees the key. Every action Claude takes shows up in the Dashboard activity log as "Claude: …". Replies and launches only happen after you approve them in chat.
+
 ## 4. Email verification (recommended)
 
 1. Sign up at **https://www.millionverifier.com**, buy credits (about $37 per 10,000 checks), and copy your **API key**.

@@ -18,6 +18,7 @@ export const config = {
   publicUrl: (env.PUBLIC_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, ''),
   serviceAccountJson: env.GOOGLE_SERVICE_ACCOUNT_JSON || '',
   millionVerifierKey: env.MILLIONVERIFIER_API_KEY || '',
+  apiKey: env.OUTREACH_API_KEY || '',
   dryRun: env.DRY_RUN === 'true',
   production: env.NODE_ENV === 'production' || !!env.RAILWAY_ENVIRONMENT,
 };
@@ -26,6 +27,7 @@ export function assertConfig() {
   const problems: string[] = [];
   if (!config.adminPassword || config.adminPassword === 'change-me') problems.push('ADMIN_PASSWORD is not set');
   if (config.appSecret.length < 24) problems.push('APP_SECRET must be at least 24 characters');
+  if (config.apiKey && config.apiKey.length < 32) problems.push('OUTREACH_API_KEY must be at least 32 characters');
   if (config.production && problems.length) {
     throw new Error(`Refusing to start: ${problems.join('; ')}`);
   }

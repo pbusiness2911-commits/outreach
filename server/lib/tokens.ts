@@ -35,3 +35,12 @@ export function checkSession(value: string | undefined, maxAgeMs = 30 * 86400000
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
   return Date.now() - parseInt(issued, 36) < maxAgeMs;
 }
+
+/** "Authorization: Bearer <OUTREACH_API_KEY>" — used by the Claude connector. Off unless the key is set (32+ chars). */
+export function validApiKey(header: string | undefined) {
+  const key = config.apiKey;
+  if (!key || key.length < 32 || !header?.startsWith('Bearer ')) return false;
+  const a = crypto.createHash('sha256').update(header.slice(7).trim()).digest();
+  const b = crypto.createHash('sha256').update(key).digest();
+  return crypto.timingSafeEqual(a, b);
+}
