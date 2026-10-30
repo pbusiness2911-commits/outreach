@@ -521,46 +521,75 @@ export function apiRouter(ctx: Ctx) {
     const campaignId = Number(req.params.id);
     const cfg = await settings(db);
     const result = { added: 0, duplicates: 0, invalid: 0, suppressed: 0, role: 0, in_other_campaign: 0 };
+    // Cheap checks in memory first, then a handful of bulk queries per request (one round trip per lead was too slow on a remote database).
     const seen = new Set<string>();
-    await db.tx(async (q) => {
-      for (const raw of rows) {
-        const email = normalizeEmail(String(raw.email || ''));
-        if (!isValidSyntax(email)) { result.invalid++; continue; }
-        if (seen.has(email)) { result.duplicates++; continue; }
-        seen.add(email);
-        const domain = email.split('@')[1];
-        if ((await q.query(`SELECT 1 FROM suppressions WHERE value = $1 OR (kind='domain' AND value = $2)`, [email, domain])).length) { result.suppressed++; continue; }
-        if (cfg.block_role_addresses && isRoleAddress(email)) { result.role++; continue; }
-        const fields: Record<string, string> = {};
-        const custom: Record<string, string> = {};
-        for (const [k, v] of Object.entries(raw)) {
-          if (v == null || v === '') continue;
-          if ((LEAD_FIELDS as readonly string[]).includes(k)) fields[k] = String(v).trim();
-          else custom[k] = String(v).trim();
-        }
-        if (fields.timezone && !isValidTimezone(fields.timezone)) delete fields.timezone;
-        const lead = (
-          await q.query(
-            `INSERT INTO leads(email, domain, first_name, last_name, company, title, phone, website, linkedin, city, timezone, custom)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-             ON CONFLICT (email) DO UPDATE SET
-               first_name = COALESCE(NULLIF(EXCLUDED.first_name,''), leads.first_name), last_name = COALESCE(NULLIF(EXCLUDED.last_name,''), leads.last_name),
-               company = COALESCE(NULLIF(EXCLUDED.company,''), leads.company), title = COALESCE(NULLIF(EXCLUDED.title,''), leads.title),
-               phone = COALESCE(NULLIF(EXCLUDED.phone,''), leads.phone), website = COALESCE(NULLIF(EXCLUDED.website,''), leads.website),
-               linkedin = COALESCE(NULLIF(EXCLUDED.linkedin,''), leads.linkedin), city = COALESCE(NULLIF(EXCLUDED.city,''), leads.city),
-               timezone = COALESCE(EXCLUDED.timezone, leads.timezone), custom = leads.custom || EXCLUDED.custom
-             RETURNING id`,
-            [email, domain, fields.first_name || '', fields.last_name || '', fields.company || '', fields.title || '', fields.phone || '', fields.website || '',
-              fields.linkedin || '', fields.city || '', fields.timezone || null, JSON.stringify(custom)],
-          )
-        )[0];
-        if (skipInOther) {
-          const other = await q.query(`SELECT 1 FROM campaign_leads WHERE lead_id = $1 AND campaign_id <> $2 AND status IN ('queued','active','sending','replied') LIMIT 1`, [lead.id, campaignId]);
-          if (other.length) { result.in_other_campaign++; continue; }
-        }
-        const ins = await q.query(`INSERT INTO campaign_leads(campaign_id, lead_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING id`, [campaignId, lead.id]);
-        ins.length ? result.added++ : result.duplicates++;
+    const pending: { email: string; domain: string; f: Record<string, string>; custom: Record<string, string> }[] = [];
+    for (const raw of rows) {
+      const email = normalizeEmail(String(raw.email || ''));
+      if (!isValidSyntax(email)) { result.invalid++; continue; }
+      if (seen.has(email)) { result.duplicates++; continue; }
+      seen.add(email);
+      if (cfg.block_role_addresses && isRoleAddress(email)) { result.role++; continue; }
+      const f: Record<string, string> = {};
+      const custom: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (v == null || v === '') continue;
+        if ((LEAD_FIELDS as readonly string[]).includes(k)) f[k] = String(v).trim();
+        else custom[k] = String(v).trim();
       }
+      if (f.timezone && !isValidTimezone(f.timezone)) delete f.timezone;
+      pending.push({ email, domain: email.split('@')[1], f, custom });
+    }
+    await db.tx(async (q) => {
+      if (!pending.length) return;
+      const blocked = new Set(
+        (await q.query(
+          `SELECT value FROM suppressions WHERE value = ANY($1::text[]) OR (kind = 'domain' AND value = ANY($2::text[]))`,
+          [pending.map((p) => p.email), [...new Set(pending.map((p) => p.domain))]],
+        )).map((r: any) => r.value),
+      );
+      const keep = pending.filter((p) => {
+        if (blocked.has(p.email) || blocked.has(p.domain)) { result.suppressed++; return false; }
+        return true;
+      });
+      if (!keep.length) return;
+      const recs = keep.map((p) => ({
+        email: p.email, domain: p.domain, first_name: p.f.first_name || '', last_name: p.f.last_name || '', company: p.f.company || '',
+        title: p.f.title || '', phone: p.f.phone || '', website: p.f.website || '', linkedin: p.f.linkedin || '', city: p.f.city || '',
+        timezone: p.f.timezone || null, custom: p.custom,
+      }));
+      const leads = await q.query(
+        `INSERT INTO leads(email, domain, first_name, last_name, company, title, phone, website, linkedin, city, timezone, custom)
+         SELECT email, domain, first_name, last_name, company, title, phone, website, linkedin, city, timezone, custom
+           FROM jsonb_to_recordset($1::jsonb) AS x(email text, domain text, first_name text, last_name text, company text, title text,
+                phone text, website text, linkedin text, city text, timezone text, custom jsonb)
+         ON CONFLICT (email) DO UPDATE SET
+           first_name = COALESCE(NULLIF(EXCLUDED.first_name,''), leads.first_name), last_name = COALESCE(NULLIF(EXCLUDED.last_name,''), leads.last_name),
+           company = COALESCE(NULLIF(EXCLUDED.company,''), leads.company), title = COALESCE(NULLIF(EXCLUDED.title,''), leads.title),
+           phone = COALESCE(NULLIF(EXCLUDED.phone,''), leads.phone), website = COALESCE(NULLIF(EXCLUDED.website,''), leads.website),
+           linkedin = COALESCE(NULLIF(EXCLUDED.linkedin,''), leads.linkedin), city = COALESCE(NULLIF(EXCLUDED.city,''), leads.city),
+           timezone = COALESCE(EXCLUDED.timezone, leads.timezone), custom = leads.custom || EXCLUDED.custom
+         RETURNING id`,
+        [JSON.stringify(recs)],
+      );
+      let ids: number[] = leads.map((l: any) => l.id);
+      if (skipInOther) {
+        const busy = new Set(
+          (await q.query(
+            `SELECT DISTINCT lead_id FROM campaign_leads WHERE lead_id = ANY($1::int[]) AND campaign_id <> $2 AND status IN ('queued','active','sending','replied')`,
+            [ids, campaignId],
+          )).map((r: any) => r.lead_id),
+        );
+        result.in_other_campaign += busy.size;
+        ids = ids.filter((id) => !busy.has(id));
+      }
+      if (!ids.length) return;
+      const ins = await q.query(
+        `INSERT INTO campaign_leads(campaign_id, lead_id) SELECT $1, unnest($2::int[]) ON CONFLICT DO NOTHING RETURNING id`,
+        [campaignId, ids],
+      );
+      result.added += ins.length;
+      result.duplicates += ids.length - ins.length;
     });
     await logEvent(db, 'info', 'leads', `Imported ${result.added} leads`, { campaign_id: campaignId });
     res.json(result);
