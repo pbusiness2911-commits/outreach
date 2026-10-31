@@ -1,6 +1,7 @@
 import { Ctx, logEvent, suppress, FREE_MAIL_DOMAINS } from './context.js';
 import { classify, parseAddress, bouncedAddress, isHardBounce, wantsUnsubscribe } from '../lib/classify.js';
 import { GmailError } from '../lib/gmail.js';
+import { config } from '../config.js';
 
 /** Reads new inbox mail for one mailbox: detects replies, bounces, auto-replies and unsubscribe requests. */
 export async function syncMailbox(ctx: Ctx, mb: any): Promise<number> {
@@ -118,7 +119,23 @@ export async function handleInbound(ctx: Ctx, mb: any, m: { id: string; threadId
     }
   }
   await logEvent(ctx.db, 'info', 'reply', `Reply from ${from}: ${m.snippet.slice(0, 120)}`, refs);
+  await notifyPhone(`Reply from ${from}`, m.snippet.slice(0, 300));
   return true;
+}
+
+/** Push notification to the ntfy app on your phone (set NTFY_TOPIC). Never blocks syncing. */
+async function notifyPhone(title: string, body: string) {
+  if (!config.ntfyTopic) return;
+  try {
+    await fetch(`https://ntfy.sh/${encodeURIComponent(config.ntfyTopic)}`, {
+      method: 'POST',
+      headers: { Title: title.replace(/[^\x20-\x7e]/g, ''), Click: `${config.publicUrl}/inbox`, Tags: 'email' },
+      body,
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    /* a missed notification must not break inbox sync */
+  }
 }
 
 async function getCl(ctx: Ctx, id: number) {

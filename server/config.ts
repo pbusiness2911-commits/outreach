@@ -19,6 +19,7 @@ export const config = {
   serviceAccountJson: env.GOOGLE_SERVICE_ACCOUNT_JSON || '',
   millionVerifierKey: env.MILLIONVERIFIER_API_KEY || '',
   apiKey: env.OUTREACH_API_KEY || '',
+  ntfyTopic: env.NTFY_TOPIC || '',
   dryRun: env.DRY_RUN === 'true',
   production: env.NODE_ENV === 'production' || !!env.RAILWAY_ENVIRONMENT,
 };
