@@ -1,5 +1,5 @@
 import { Ctx, logEvent, suppress, FREE_MAIL_DOMAINS } from './context.js';
-import { classify, parseAddress, bouncedAddress, isHardBounce, wantsUnsubscribe } from '../lib/classify.js';
+import { classify, parseAddress, bouncedAddress, isHardBounce, wantsUnsubscribe, freshText } from '../lib/classify.js';
 import { GmailError } from '../lib/gmail.js';
 import { config } from '../config.js';
 
@@ -119,23 +119,52 @@ export async function handleInbound(ctx: Ctx, mb: any, m: { id: string; threadId
     }
   }
   await logEvent(ctx.db, 'info', 'reply', `Reply from ${from}: ${m.snippet.slice(0, 120)}`, refs);
-  await notifyPhone(`Reply from ${from}`, m.snippet.slice(0, 300));
+  await notifyReply(ctx, cl, from, m.text || m.snippet);
   return true;
 }
 
-/** Push notification to the ntfy app on your phone (set NTFY_TOPIC). Never blocks syncing. */
-async function notifyPhone(title: string, body: string) {
+/** Plain-English push to the ntfy app on your phone (set NTFY_TOPIC). Never blocks syncing. */
+async function notifyReply(ctx: Ctx, cl: any, from: string, text: string) {
   if (!config.ntfyTopic) return;
   try {
+    const [who] = await ctx.db.query(
+      `SELECT l.first_name, l.last_name, l.company, c.name AS campaign FROM leads l, campaigns c WHERE l.id = $1 AND c.id = $2`,
+      [cl.lead_id, cl.campaign_id],
+    );
+    const name = [who?.first_name, who?.last_name].filter(Boolean).join(' ') || from;
+    const title = who?.company ? `${name} from ${who.company} replied` : `${name} replied`;
+    const words = readableReply(text);
+    const body = `"${words}"
+
+Campaign: ${who?.campaign ?? ''}
+Tap to open and answer.`;
     await fetch(`https://ntfy.sh/${encodeURIComponent(config.ntfyTopic)}`, {
       method: 'POST',
-      headers: { Title: title.replace(/[^\x20-\x7e]/g, ''), Click: `${config.publicUrl}/inbox`, Tags: 'email' },
+      headers: {
+        // HTTP headers must be plain ASCII; ntfy decodes RFC 2047 for anything else
+        Title: `=?UTF-8?B?${Buffer.from(title).toString('base64')}?=`,
+        Click: `${config.publicUrl}/inbox`,
+        Tags: 'speech_balloon',
+        Priority: 'high',
+      },
       body,
       signal: AbortSignal.timeout(5000),
     });
   } catch {
     /* a missed notification must not break inbox sync */
   }
+}
+
+/** Only what the person newly wrote: no quoted thread, signature or line noise. */
+export function readableReply(text: string) {
+  const fresh = freshText(text)
+    .split(/\n(?:--\s*\n|sent from my |get outlook for )/i)[0]
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('>'))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return fresh.length > 280 ? `${fresh.slice(0, 277).trimEnd()}...` : fresh || '(no text, open to see it)';
 }
 
 async function getCl(ctx: Ctx, id: number) {
