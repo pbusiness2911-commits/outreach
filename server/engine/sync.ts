@@ -123,9 +123,9 @@ export async function handleInbound(ctx: Ctx, mb: any, m: { id: string; threadId
   return true;
 }
 
-/** Plain-English push to the ntfy app on your phone (set NTFY_TOPIC). Never blocks syncing. */
+/** Plain-English phone alert: the "Replies" app (REPLIES_HOOK_URL) and/or ntfy (NTFY_TOPIC). Never blocks syncing. */
 async function notifyReply(ctx: Ctx, cl: any, from: string, text: string) {
-  if (!config.ntfyTopic) return;
+  if (!config.ntfyTopic && !config.repliesHookUrl) return;
   try {
     const [who] = await ctx.db.query(
       `SELECT l.first_name, l.last_name, l.company, c.name AS campaign FROM leads l, campaigns c WHERE l.id = $1 AND c.id = $2`,
@@ -134,6 +134,19 @@ async function notifyReply(ctx: Ctx, cl: any, from: string, text: string) {
     const name = [who?.first_name, who?.last_name].filter(Boolean).join(' ') || from;
     const title = who?.company ? `${name} from ${who.company} replied` : `${name} replied`;
     const words = readableReply(text);
+    if (config.repliesHookUrl) {
+      // Same fields lemlist sends, so the existing phone app reads it unchanged
+      await fetch(config.repliesHookUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          leadFirstName: who?.first_name || '', leadLastName: who?.last_name || '', leadEmail: from,
+          leadCompanyName: who?.company || '', campaignName: who?.campaign || '', text: words,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {});
+    }
+    if (!config.ntfyTopic) return;
     const body = `"${words}"
 
 Campaign: ${who?.campaign ?? ''}
